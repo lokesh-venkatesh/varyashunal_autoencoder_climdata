@@ -1,0 +1,1 @@
+This is a reconstruction of the Variational Autoencoder model on 50 years of hourly temperature data by David Kyle in his [blog](https://towardsdatascience.com/vae-for-time-series-1dc0fef4bffa/), rewritten in Pytorch instead of Tensorflow.
