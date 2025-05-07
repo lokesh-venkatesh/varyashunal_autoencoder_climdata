@@ -1,3 +1,13 @@
+"""
+This is code for compiling all of the raw .nc files into a large .csv file, as well as saving stats for the same.
+
+Then, this file takes the raw dataset from the compiled .csv file, and then:
+1. performs a linear regression on it, to account for climate change, 
+and then collapses it from a straight line with a slope into a flat line.
+2. normalises that collapsed dataset into a normal distribution with mean=0 and standard deviation=1, 
+basically z = (x - mu)/sigma
+"""
+
 import os
 import xarray as xr
 import pandas as pd
@@ -5,54 +15,59 @@ import numpy as np
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
 
-# Define the base directory
-base_dir = "data/raw_data"
+base_dir = "data/raw_data_files"
 output_dir = "data"
 combined_csv_path = os.path.join(output_dir, "raw_data.csv")
+final_csv_path = os.path.join(output_dir, "final_dataset.csv")
 
-# Ensure the output directory exists
 os.makedirs(output_dir, exist_ok=True)
+os.makedirs('results', exist_ok=True)
 
-# Initialize a list to store all dataframes
-all_dataframes = []
+all_dataframes = [] #This list will contain all the dataframes for each triple of annums
 
 def save_nc_as_csv(nc_file_path, csv_file_path):
-    # Open the .nc file and convert it to a dataframe
+    """
+    Checks if the .csv files for each triple of years exists or not, 
+    """
+    #if not os.path.exists(csv_file_path):
     try:
         ds = xr.open_dataset(nc_file_path)
         df = ds.to_dataframe().reset_index()
 
-        # Save the dataframe as a CSV file in the same location
-        df.to_csv(csv_file_path, index=False)
+        df.to_csv(csv_file_path, index=False) # Save the dataframe as a CSV file in the same location
         print(f"Saved CSV: {csv_file_path}")
 
-        # Append the dataframe to the list for combining later
-        all_dataframes.append(df)
+        all_dataframes.append(df) # Append the dataframe to the list for combining later
     except Exception as e:
         print(f"Error processing {nc_file_path}: {e}")
+    #else:
+    #    print(f"The .csv file {csv_file_path} already exists")
 
-def adjust_timeseries_for_climchange(dataframe=pd.read_csv('data/raw_data.csv')):
-    dataframe['dummy_col'] = dataframe['valid_time']
-    dataframe['valid_time'] = (pd.to_datetime(dataframe['valid_time'])-pd.to_datetime(dataframe['valid_time'].iloc[0])).dt.total_seconds()/3600
-    slope, intercept, r_value, p_value, std_err = linregress(dataframe['valid_time'], dataframe['t2m']) # Perform linear regression
-
+def adjust_timeseries_for_climchange(dataframe):
+    dataframe['dummy_col'] = dataframe['time']
+    dataframe['time'] = pd.to_datetime(dataframe['time']) # Ensure time is datetime
+    dataframe['temperature_time_hours'] = (dataframe['time'] - dataframe['time'].iloc[0]).dt.total_seconds() / 3600 # Convert time to hours since the first timestamp
+    # Linear regression: time in hours vs. temperature
+    slope, intercept, r_value, p_value, std_err = linregress(dataframe['temperature_time_hours'], dataframe['temperature'])
     print(f"The rate of temperature increase per hour is {slope} degrees/hour.")
-
-    most_recent_time = dataframe['valid_time'].max()
-    dataframe['t2m_adj'] = dataframe['t2m'] - slope * (dataframe['valid_time'] - most_recent_time)
-    dataframe['valid_time'] = dataframe['dummy_col']
-    dataframe = dataframe.drop(columns=['dummy_col'])
-    return dataframe
+    
+    most_recent_time = dataframe['time'].max() # Compute time difference (in hours) from most recent time
+    hours_from_recent = (dataframe['time'] - most_recent_time).dt.total_seconds() / 3600
+    
+    dataframe['temperature'] = dataframe['temperature'] - slope * hours_from_recent # Adjust temperature
+    dataframe['time'] = dataframe['dummy_col'] # Restore original time column
+    dataframe = dataframe.drop(columns=['dummy_col', 'temperature_time_hours'])
+    return dataframe, slope
 
 def normalise_timeseries(dataframe):
-    offset = dataframe['t2m_adj'].mean()
-    scale = dataframe['t2m_adj'].std()
-    dataframe['t2m_norm_adj'] = (dataframe['t2m_adj'] - offset) / scale
-    return dataframe
-    
+    offset = dataframe['temperature'].mean()
+    scale = dataframe['temperature'].std()
+    dataframe['temperature'] = (dataframe['temperature']-offset)/scale
+    return dataframe, offset, scale
 
 def main():
-    # Iterate over all subfolders in the base directory
+    """This block of code iterates through each subfolder of 'data' and saves each .nc file as a .csv file 
+    along with the former."""
     for root, dirs, files in os.walk(base_dir):
         for file in files:
             if file.endswith(".nc"):
@@ -60,70 +75,70 @@ def main():
                 csv_file_path = os.path.splitext(nc_file_path)[0] + ".csv"
                 save_nc_as_csv(nc_file_path=nc_file_path, csv_file_path=csv_file_path)
     
-    # Combine all dataframes into one large dataframe
+    """This block of code combines all of the .csv files into one huge .csv file
+    It also drops the columns 'number' and 'expver' if they are in the dataframe at all.
+    Then, it sorts the values in the .csv file by the 'valid_time' column"""
+
     if all_dataframes:
-        combined_df = pd.concat(all_dataframes)
+        combined_raw_df = pd.concat(all_dataframes)
 
-        # Sort the combined dataframe by time (assuming a 'time' column exists)
-        if 'valid_time' in combined_df.columns:
-            combined_df = combined_df.sort_values(by='valid_time')
-        if 'number' in combined_df.columns:
-            combined_df = combined_df.drop('number', axis=1)
-        if 'expver' in combined_df.columns:
-            combined_df = combined_df.drop('expver', axis=1)
+        if 'valid_time' in combined_raw_df.columns:
+            combined_raw_df = combined_raw_df.rename(columns={'valid_time': 'time'})
+            combined_raw_df = combined_raw_df.sort_values(by='time')
+        if 't2m' in combined_raw_df.columns:
+            combined_raw_df = combined_raw_df.rename(columns={'t2m': 'temperature'})
+        if 'number' in combined_raw_df.columns:
+            combined_raw_df = combined_raw_df.drop('number', axis=1)
+        if 'expver' in combined_raw_df.columns:
+            combined_raw_df = combined_raw_df.drop('expver', axis=1)
 
-        # To account for time zone difference with respect to GMT
-        combined_df['valid_time'] = pd.to_datetime(combined_df['valid_time']) - pd.Timedelta(hours=7)
+        """Then, since the raw .nc files are written with respect to GMT, it converts the datasets to GMT + 7:00 hrs, 
+        and also converts the temperature values from Kelvin to Celsius"""
+        combined_raw_df['time'] = pd.to_datetime(combined_raw_df['time']) - pd.Timedelta(hours=7)
+        combined_raw_df['temperature'] = combined_raw_df['temperature'] - 273.15
 
-        # Convert Kelvin to Celsius:
-        combined_df['t2m'] = combined_df['t2m']-273.15
-
-        # Average temperature spatially
-        combined_df = combined_df.groupby("valid_time")["t2m"].mean().reset_index()
-
-        # Save the combined dataframe as a CSV file
-        combined_df.to_csv(combined_csv_path, index=False)
+        """This line of code spatially averages the temperature values,
+        giving exactly one value per time point for the whole dataset"""
+        raw_df = combined_raw_df.groupby("time")["temperature"].mean().reset_index()
+        raw_df.to_csv(combined_csv_path, index=False)
         print(f"Combined CSV saved at: {combined_csv_path}")
 
-        df_desc = combined_df.drop(columns=['valid_time'])
-        df_desc = df_desc.describe() # Get descriptive statistics of the temperature data
-        df_desc.to_csv("data/raw_data_stats.csv")
+        raw_df_desc = raw_df.drop(columns=['time']).describe()
+        raw_df_desc.to_csv("data/raw_data_stats.csv")
     else:
         print("No .nc files were processed.")
-    
-    df = pd.read_csv('data/raw_data.csv') # Assuming the dataframe has columns 'valid_time' (in hours) and 'Observed'
-    df_copy = adjust_timeseries_for_climchange(df)
-    #df_copy.to_csv('data/adj_data.csv', index=False)
-    #df_copy = df_copy.drop(columns=['valid_time'])
-    df_desc = df_copy.describe()
-    #df_desc.to_csv('data/adj_data_stats.csv')
-    df_norm = normalise_timeseries(df_copy)
-    #df_norm.to_csv('data/norm_adj_data.csv', index=False)
-    dft_desc = df_norm.describe()
-    #dft_desc.to_csv('data/norm_adj_data_stats.csv')
-    df_norm = df_norm.drop(columns=['t2m', 't2m_adj'])
-    df_norm.to_csv('data/final_timeseries.csv', index=False)
-    df_norm_desc = df_norm.describe()
-    df_norm_desc.to_csv('data/final_timeseries_stats.csv')
 
+    raw_df = pd.read_csv(combined_csv_path, index_col=None)
+    raw_df['time'] = pd.to_datetime(raw_df["time"])
     
-    # Preview the DataFrame
-    print(df.head())
+    cc_adjstd_df, cc_slope = adjust_timeseries_for_climchange(raw_df)
+    cc_adjstd_nrmlsd_df, norm_offset, norm_scale = normalise_timeseries(cc_adjstd_df)
 
+    processing_params = {'cc_slope':cc_slope,'norm_offset': norm_offset,'norm_scale':norm_scale}
+    processing_params_df = pd.DataFrame.from_dict(processing_params, orient='index', columns=['processing_parameter'])
+    processing_params_df.to_csv("data/processing_params_deets.csv")
+    
+    cc_adjstd_nrmlsd_df.to_csv('data/final_timeseries.csv', index=False)
+    cc_adjstd_nrmlsd_df_desc = cc_adjstd_nrmlsd_df.drop(columns=['time']).describe()
+    cc_adjstd_nrmlsd_df_desc.to_csv('data/final_timeseries_stats.csv')
+    
+    '''
+    cc_adjstd_nrmlsd_df['time'] = pd.to_datetime(cc_adjstd_nrmlsd_df['time']) 
     # Convert 'valid_time' to datetime if it's not already
-    df['valid_time'] = pd.to_datetime(df['valid_time'])
-
-    # Filter out data from the year 2021
-    df = df[(df['valid_time'].dt.year >= 1970) & (df['valid_time'].dt.year <= 2020)]
-    #df = df[df['valid_time'].dt.year < 2021]
-
-    # Add a 'year' column for grouping
-    df['year'] = df['valid_time'].dt.year
-
-    # Calculate yearly average temperatures
-    yearly_avg_raw_temp = df.groupby('year')['t2m'].mean()
-    yearly_avg_adj_temp = df.groupby('year')['t2m_adj'].mean()
-
+    
+    cc_adjstd_nrmlsd_df = cc_adjstd_nrmlsd_df[(cc_adjstd_nrmlsd_df['time'].dt.year >= 1970) & (cc_adjstd_nrmlsd_df['time'].dt.year <= 2020)] 
+    cc_adjstd_df = cc_adjstd_df[(cc_adjstd_df['time'].dt.year >= 1970) & (cc_adjstd_df['time'].dt.year <= 2020)] 
+    # Filter out data from after 2020 and before 1970
+    cc_adjstd_nrmlsd_df['year'] = cc_adjstd_nrmlsd_df['time'].dt.year # Add a 'year' column for grouping
+    
+    print(cc_adjstd_nrmlsd_df.head())
+    # Calculate the yearly average temperatures
+    #raw_temps = pd.read_csv(combined_csv_path, index_col=None)
+    #raw_temps['time'] = pd.to_datetime(raw_temps["time"])
+    cc_adjstd_df['year'] = cc_adjstd_df['time'].dt.year
+    yearly_avg_raw_temp = cc_adjstd_df.groupby('year')['temperature'].mean()
+    yearly_avg_adj_temp = cc_adjstd_nrmlsd_df.groupby('year')['temperature'].mean()
+    
     # Plot the yearly average temperatures
     plt.figure(figsize=(10, 5))
     plt.plot(yearly_avg_raw_temp.index, yearly_avg_raw_temp.values, label='Raw Temperature', color='blue')
@@ -137,6 +152,7 @@ def main():
 
     # Save the plot
     plt.savefig('results/plot6_impact_of_climate_change.png', dpi=300)
+    '''
 
 if __name__ == "__main__":
     main()
