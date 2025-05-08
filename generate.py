@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from utils import load_model
-from components import construct_decoder, construct_encoder, construct_seasonal_prior  # Assuming separate functions for encoder/decoder
+from model_components import construct_decoder, construct_encoder, construct_seasonal_prior  # Assuming separate functions for encoder/decoder
 from model import VAE  # Make sure this imports your VAE class
 
 def generate_time_series(start_time, stop_time, model, latent_dim=64, time_step=1, batch_size=512):

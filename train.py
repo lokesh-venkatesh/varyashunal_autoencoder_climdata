@@ -4,17 +4,15 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import Adam
 
-from components import construct_encoder, construct_decoder, construct_seasonal_prior
-from model import construct_VAE
+from model_components import construct_encoder, construct_decoder, construct_seasonal_prior
+from model import VAE, construct_VAE
 from utils import train_and_evaluate, save_model, analyze_latent_space
 
 # Configurations
-from config import (
-    BATCH_SIZE, LEARNING_RATE, EPOCHS, INPUT_SIZE, LATENT_DIM, DEGREE, DEVICE, MODEL_SAVE_PATH
-)
+from config import *
 
 # Load and preprocess data
-data = pd.read_csv('data/phoenix_64days.csv', index_col=0, parse_dates=True)
+data = pd.read_csv('data/reshaped_dataset.csv', index_col=0, parse_dates=True)
 
 # Fourier basis for seasonal encoding
 fourier = lambda x: np.stack(
@@ -29,15 +27,16 @@ data_days = (starting_day + np.arange(0, INPUT_SIZE // 24, LATENT_DIM // 24)) % 
 seasonal_data = fourier(data_days / 365)
 
 # Split data into train/test
-n_train = int(len(data) * 0.8)
-train = data[:n_train]
-test = data[n_train:]
+train_ratio = 0.8
+n_train = int(len(data) * train_ratio)
+train = data.values[:n_train]
+test = data.values[n_train:]
 train_seasonal = seasonal_data[:n_train]
 test_seasonal = seasonal_data[n_train:]
 
 # Convert to tensors
-train_tensor = torch.tensor(train.values, dtype=torch.float32)
-test_tensor = torch.tensor(test.values, dtype=torch.float32)
+train_tensor = torch.tensor(train, dtype=torch.float32)
+test_tensor = torch.tensor(test, dtype=torch.float32)
 train_seasonal_tensor = torch.tensor(train_seasonal, dtype=torch.float32)
 test_seasonal_tensor = torch.tensor(test_seasonal, dtype=torch.float32)
 

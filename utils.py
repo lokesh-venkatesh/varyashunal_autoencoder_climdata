@@ -7,6 +7,7 @@ import os
 import math
 from sklearn.metrics import mean_squared_error
 from torch.utils.data import DataLoader
+from config import *
 
 def kl_divergence_sum(mu1=0.0, log_var1=0.0, mu2=0.0, log_var2=0.0):
     var1 = torch.exp(log_var1)
@@ -21,9 +22,6 @@ def log_lik_normal_sum(x, mu=0.0, log_var=0.0):
 
     axis0 = -0.5 * (math.log(2 * np.pi) + torch.mean(log_var + ((x - mu) ** 2) * torch.exp(-log_var), dim=0))
     return torch.sum(axis0)
-
-
-
 
 # Logging training and validation losses
 def plot_loss_curves(train_losses, test_losses, output_dir="output"):

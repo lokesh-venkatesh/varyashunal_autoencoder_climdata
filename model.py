@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from utils import *
-from components import construct_encoder, construct_decoder, construct_seasonal_prior
+from model_components import construct_encoder, construct_decoder, construct_seasonal_prior
 from config import *
 
 class VAE(nn.Module):
