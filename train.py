@@ -1,99 +1,65 @@
-import pandas as pd
-import numpy as np
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from torch.optim import Adam
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+import os
 
-from model_components import construct_encoder, construct_decoder, construct_seasonal_prior
-from model import VAE, construct_VAE
-from utils import train_and_evaluate, save_model, analyze_latent_space
-
-# Configurations
-from config import *
-
-# Load and preprocess data
-data = pd.read_csv('data/reshaped_dataset.csv', index_col=0, parse_dates=True)
-
-# Fourier basis for seasonal encoding
-fourier = lambda x: np.stack(
-    [np.sin(2 * np.pi * i * x) for i in range(1, DEGREE + 1)] +
-    [np.cos(2 * np.pi * i * x) for i in range(1, DEGREE + 1)],
-    axis=-1
-)
-
-# Generate seasonal input (daily basis for each sample)
-starting_day = np.array(data.index.dayofyear)[:, np.newaxis] - 1
-data_days = (starting_day + np.arange(0, INPUT_SIZE // 24, LATENT_DIM // 24)) % 365
-seasonal_data = fourier(data_days / 365)
-
-# Split data into train/test
-train_ratio = 0.8
-n_train = int(len(data) * train_ratio)
-train = data.values[:n_train]
-test = data.values[n_train:]
-train_seasonal = seasonal_data[:n_train]
-test_seasonal = seasonal_data[n_train:]
-
-# Convert to tensors
-train_tensor = torch.tensor(train, dtype=torch.float32)
-test_tensor = torch.tensor(test, dtype=torch.float32)
-train_seasonal_tensor = torch.tensor(train_seasonal, dtype=torch.float32)
-test_seasonal_tensor = torch.tensor(test_seasonal, dtype=torch.float32)
-
-# Create TensorDatasets and Dataloaders
-train_dataset = TensorDataset(train_tensor, train_seasonal_tensor)
-test_dataset = TensorDataset(test_tensor, test_seasonal_tensor)
-
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
-
-# Construct model components
-encoder = construct_encoder()
-decoder = construct_decoder()
-seasonal_prior = construct_seasonal_prior()
-
-vae_model = construct_VAE()
-vae_model.to(DEVICE)
-
-# Optimizer
-optimizer = Adam(vae_model.parameters(), lr=LEARNING_RATE)
-
-# Train and evaluate the model
-train_and_evaluate(
-    model=vae_model,
-    train_loader=train_loader,
-    test_loader=test_loader,
-    optimizer=optimizer,
-    epochs=EPOCHS,
-    input_size=INPUT_SIZE,
-    output_dir="output"
-)
-
-# Save model
-save_model(vae_model, filename='vae_model_final.pth', output_dir='models')
-
-# Analyze latent space after training
-vae_model.eval()
-z_means = []
-z_log_vars = []
-
-with torch.no_grad():
-    for batch in test_loader:
-        values, seasonal = batch
-        values = values.to(DEVICE)
-        seasonal = seasonal.to(DEVICE)
-        z_mean, z_log_var = vae_model.encode(values, seasonal)
-        z_mean = z_mean.view(z_mean.size(0), -1)
-        z_log_var = z_log_var.view(z_log_var.size(0), -1)
-
-        z_means.append(z_mean)
-        z_log_vars.append(z_log_var)
+from model import VariationalAutoencoder
+from utils import get_dataloaders
 
 
+def elbo_loss(recon_x, x, mu, logvar):
+    recon_loss = nn.MSELoss()(recon_x, x)
+    kl_div = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    return recon_loss + kl_div, recon_loss.item(), kl_div.item()
 
-z_mean_tensor = torch.cat(z_means, dim=0)
-z_log_var_tensor = torch.cat(z_log_vars, dim=0)
 
-analyze_latent_space(z_mean_tensor, z_log_var_tensor, output_dir="output")
+def train():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    input_dim = 1536
+    latent_dim = 10
+    batch_size = 64
+    epochs = 50
 
-print("Training and analysis complete!")
+    # Prepare data
+    train_loader, val_loader = get_dataloaders("data/reshaped_dataset.csv", batch_size=batch_size)
+
+    # Initialize model
+    model = VariationalAutoencoder(input_dim=input_dim, latent_dim=latent_dim).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    # Training loop
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0.0
+        recon_loss_total = 0.0
+        kl_loss_total = 0.0
+
+        loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
+        for batch in loop:
+            batch = batch.to(device)
+            optimizer.zero_grad()
+
+            recon, mu, logvar, _ = model(batch)
+            loss, recon_loss, kl_loss = elbo_loss(recon, batch, mu, logvar)
+
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item()
+            recon_loss_total += recon_loss
+            kl_loss_total += kl_loss
+
+            loop.set_postfix({"Loss": loss.item(), "Recon": recon_loss, "KL": kl_loss})
+
+        print(f"Epoch {epoch+1}: Total Loss = {train_loss:.4f}, Recon = {recon_loss_total:.4f}, KL = {kl_loss_total:.4f}")
+
+    # Save model
+    os.makedirs("results", exist_ok=True)
+    model.save_model("results/model_weights.pth")
+    print("Model saved to results/model_weights.pth")
+
+
+if __name__ == "__main__":
+    train()
