@@ -8,13 +8,18 @@ class TimeSeriesDataset(Dataset):
     def __init__(self, csv_path):
         self.df = pd.read_csv(csv_path, index_col=0)
         self.data = self.df.values.astype(np.float32)
+        self.time_index = pd.to_datetime(self.df.index)  # convert to datetime
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        x = self.data[idx]
-        return torch.tensor(x)  # shape: (1536,)
+        x = torch.tensor(self.data[idx])  # shape: (1536,)
+        # Extract day of year as float between 0 and 1
+        day_of_year = self.time_index[idx].dayofyear / 365.0
+        time_tensor = torch.tensor(day_of_year, dtype=torch.float32)
+        return x, time_tensor
+
 
 
 def get_dataloaders(csv_path, batch_size=32, split_ratio=0.8):

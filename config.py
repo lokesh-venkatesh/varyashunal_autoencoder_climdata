@@ -3,14 +3,12 @@ import torch
 DAYS = 64
 HOURS = 24
 INPUT_SIZE = DAYS*HOURS        # 64 days of hourly temps
-#LATENT_DIM = 32             # size of latent vector z
 LATENT_SIZE = 4*24          # the hours associated with each latent variable
 LATENT_DIM = INPUT_SIZE // LATENT_SIZE  # 16
 LATENT_FILTERS = 10
 INTERIM_FILTERS = 2*LATENT_FILTERS     # 20
 SEASONAL_INTERVAL = 24      # use one seasonal embedding per day
 FOURIER_DEGREE = 3                  # for Fourier features for the prior distribution
-#FOURIER_PERIODS = [365.0, 24.0]
 FOURIER_PERIOD = 365.0
 HIDDEN_DIM = 128            # used in encoder/decoder hidden layers
 BATCH_SIZE = 64

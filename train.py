@@ -37,12 +37,14 @@ def train():
         kl_loss_total = 0.0
 
         loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
-        for batch in loop:
-            batch = batch.to(device)
-            optimizer.zero_grad()
+        for x, time_tensor in loop:
+            x = x.to(device)
+            time_tensor = time_tensor.to(device)
 
-            recon, mu, logvar, _ = model(batch)
-            loss, recon_loss, kl_loss = elbo_loss(recon, batch, mu, logvar)
+            optimizer.zero_grad()
+            recon, mu, logvar, _ = model(x, time_tensor)  # model expects both x and time
+
+            loss, recon_loss, kl_loss = elbo_loss(recon, x, mu, logvar)
 
             loss.backward()
             optimizer.step()
