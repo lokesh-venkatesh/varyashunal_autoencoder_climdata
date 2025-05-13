@@ -2,7 +2,6 @@ import torch
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import sys
 
 from model import VariationalAutoencoder
 
@@ -28,26 +27,35 @@ def generate_time_series(start_time_str='1969-12-31 17:00:00',
     block_size = 1536
     n_blocks = (delta_hours + block_size - 1) // block_size
 
-    # Generate synthetic sequences from prior
     all_generated = []
-    timestamps = []
     for i in range(n_blocks):
         with torch.no_grad():
-            z = torch.randn(1, latent_dim).to(device)
-            dummy_time = start_time + timedelta(hours=i * block_size)
-            season_input = model.seasonal_prior(torch.tensor([[dummy_time.timetuple().tm_yday]], dtype=torch.float32).to(device))
-            z = z + season_input
+            block_start_time = start_time + timedelta(hours=i * block_size)
+            
+            # Create time tensor for all 1536 hours in the block
+            block_times = [block_start_time + timedelta(hours=j) for j in range(block_size)]
+            day_of_year = [t.timetuple().tm_yday for t in block_times]
+            time_tensor = torch.tensor(day_of_year, dtype=torch.float32, device=device).unsqueeze(1)
+
+            # Generate seasonal prior for the whole sequence
+            seasonal_prior = model.seasonal_prior(time_tensor)  # (1536, latent_dim)
+            seasonal_prior = seasonal_prior.transpose(0, 1).unsqueeze(0)  # (1, latent_dim, 1536)
+
+            # Sample latent vector with noise
+            z = torch.randn_like(seasonal_prior) + seasonal_prior  # (1, latent_dim, 1536)
+
+            # Decode
             x_recon = model.decoder(z).cpu().numpy().flatten()
             all_generated.extend(x_recon)
 
-    # Slice to match exact duration requested
+    # Slice to match exact duration
     all_generated = all_generated[:delta_hours]
 
     # Build time index and DataFrame
     generated_times = [start_time + timedelta(hours=i) for i in range(delta_hours)]
     df = pd.DataFrame({"time": generated_times, "temperature": all_generated})
     df.to_csv("results/gnrtd_timeseries.csv", index=False)
-    print(f"Generated data saved to results/gnrtd_timeseries.csv")
+    print("✅ Generated data saved to results/gnrtd_timeseries.csv")
 
 
 if __name__ == "__main__":

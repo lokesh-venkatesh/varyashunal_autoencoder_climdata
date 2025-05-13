@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 # Load your data
-df = pd.read_csv("GEN.csv", parse_dates=["time"])
+df = pd.read_csv("results/gnrtd_timeseries.csv", parse_dates=["time"])
 df = df.sort_values("time")
 
 # 1. Seasonal profile across all years
