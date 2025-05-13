@@ -19,8 +19,8 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     input_dim = 1536
     latent_dim = 10
-    batch_size = 64
-    epochs = 50
+    batch_size = 32
+    epochs = 100
 
     # Prepare data
     train_loader, val_loader = get_dataloaders("data/reshaped_dataset.csv", batch_size=batch_size)
@@ -53,7 +53,7 @@ def train():
 
             loop.set_postfix({"Loss": loss.item(), "Recon": recon_loss, "KL": kl_loss})
 
-        print(f"Epoch {epoch+1}: Total Loss = {train_loss:.4f}, Recon = {recon_loss_total:.4f}, KL = {kl_loss_total:.4f}")
+        print(f"Epoch {epoch+1}: Total Loss = {train_loss:.8f}, Recon = {recon_loss_total:.8f}, KL = {kl_loss_total:.8f}")
 
     # Save model
     os.makedirs("results", exist_ok=True)

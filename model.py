@@ -49,10 +49,10 @@ class SeasonalPrior(nn.Module):
         self.latent_dim = latent_dim
         self.freqs = torch.arange(1, 4).float().view(1, -1)  # 1st to 3rd harmonic
 
-    def forward(self, times):
+    def forward(self, time_tensor):
         # times: (batch,) in days of year scaled to [0, 1]
-        times = times.view(-1, 1)  # shape: (batch, 1)
-        phases = 2 * math.pi * self.freqs * times  # (batch, freqs)
+        time_tensor = time_tensor.view(-1, 1)  # shape: (batch, 1)
+        phases = 2 * math.pi * self.freqs * time_tensor  # (batch, freqs)
         features = torch.cat([torch.sin(phases), torch.cos(phases)], dim=1)  # (batch, 6)
         seasonal = F.linear(features, torch.randn(self.latent_dim, features.shape[1]))
         return seasonal

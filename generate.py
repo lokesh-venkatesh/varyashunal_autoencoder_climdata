@@ -8,7 +8,7 @@ from model import VariationalAutoencoder
 
 
 def generate_time_series(start_time_str='1969-12-31 17:00:00', 
-                         end_time_str='2020-12-31 16:00:00', 
+                         end_time_str='2020-12-31 17:00:00', 
                          model_path="results/model_weights.pth"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
