@@ -136,6 +136,7 @@ class SeasonalPrior(nn.Module):
         self.latent_dim = latent_dim # This is the dimension of the latent space vector
         self.num_freqs = num_freqs # This is the highest degree of the Fourier series we wish to use for modelling the seasonality
         self.freqs = nn.Parameter(torch.arange(1, num_freqs + 1).float().view(1, -1), requires_grad=False) 
+        '''self.freqs = nn.Parameter(torch.arange(1, num_freqs + 1).float().view(1, -1))'''
         # This is a learnable parameter that is initialized to 1, 2, ..., num_freqs
         self.linear = nn.Linear(2 * num_freqs, latent_dim) # Learnable projection from Fourier features to latent_dim
 
@@ -157,10 +158,10 @@ class VariationalAutoencoder(nn.Module):
         self.latent_dim = latent_dim
         self.input_dim = input_dim
 
-        self.encoder = Encoder()
-        self.decoder = Decoder()
+        self.encoder = Encoder(latent_dim=latent_dim)
+        self.decoder = Decoder(latent_dim=latent_dim, output_length=input_dim)
         self.sampling = Sampling()
-        self.seasonal_prior = SeasonalPrior()
+        self.seasonal_prior = SeasonalPrior(latent_dim=latent_dim, num_freqs=3)
 
     def forward(self, x, time_tensor):
         mu, logvar = self.encoder(x) # NOTE that the mu and logvar are of size (batch, latent_dim, seq_len), and we want to sample from this distribution
