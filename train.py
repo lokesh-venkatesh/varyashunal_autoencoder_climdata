@@ -10,10 +10,10 @@ from utils import get_dataloaders
 
 
 def elbo_loss(recon_x, x, mu, logvar):
+    """CALCULATE THE EVIDENCE LOWER BOUND (ELBO) LOSS FUNCTION USING THE RECONSTRUCTION LOSS AND KL DIVERGENCE"""
     recon_loss = nn.MSELoss()(recon_x, x)
-    kl_div = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    kl_div = -0.5*torch.mean(1+logvar-mu.pow(2)-logvar.exp())
     return recon_loss + kl_div, recon_loss.item(), kl_div.item()
-
 
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,30 +38,28 @@ def train():
 
         loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
         for x, time_tensor in loop:
-            x = x.to(device)
-            time_tensor = time_tensor.to(device)
+            x = x.to(device) # This is the input vector of the 1536-timepoints length time series
+            time_tensor = time_tensor.to(device) # This is the time tensor of the same length as x
 
             optimizer.zero_grad()
-            recon, mu, logvar, _ = model(x, time_tensor)  # model expects both x and time
+            recon, mu, logvar, _ = model(x, time_tensor)  # The model returns the reconstructed output, mean, log variance, and the latent representation
 
-            loss, recon_loss, kl_loss = elbo_loss(recon, x, mu, logvar)
+            elbo, recon_loss, kl_loss = elbo_loss(recon, x, mu, logvar) # returns the ELBO loss, reconstruction loss, and KL divergence
 
-            loss.backward()
-            optimizer.step()
+            elbo.backward() # Backpropagation
+            optimizer.step() # Update the model parameters
 
-            train_loss += loss.item()
-            recon_loss_total += recon_loss
-            kl_loss_total += kl_loss
+            train_loss += elbo.item() # Accumulate the total loss
+            recon_loss_total += recon_loss # Accumulate the reconstruction loss
+            kl_loss_total += kl_loss # Accumulate the KL divergence
 
-            loop.set_postfix({"Loss": loss.item(), "Recon": recon_loss, "KL": kl_loss})
+            loop.set_postfix({"Loss": elbo.item(), "Recon": recon_loss, "KL": kl_loss}) 
 
         print(f"Epoch {epoch+1}: Total Loss = {train_loss:.8f}, Recon = {recon_loss_total:.8f}, KL = {kl_loss_total:.8f}")
 
-    # Save model
     os.makedirs("results", exist_ok=True)
     model.save_model("results/model_weights.pth")
     print("Model saved to results/model_weights.pth")
-
 
 if __name__ == "__main__":
     train()

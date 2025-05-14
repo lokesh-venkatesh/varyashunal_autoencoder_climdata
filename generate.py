@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from model import VariationalAutoencoder
 
 
-def generate_time_series(start_time_str='1969-12-31 17:00:00', 
-                         end_time_str='2020-12-31 17:00:00', 
+def generate_time_series(start_time_str='1969-12-31 17:00:00', # Start time of the time series
+                         end_time_str='2020-12-31 17:00:00', # End time of the time series
                          model_path="results/model_weights.pth",
                          output_csv="results/gnrtd_timeseries.csv"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,15 +19,15 @@ def generate_time_series(start_time_str='1969-12-31 17:00:00',
     # Load model
     model = VariationalAutoencoder(input_dim=input_dim, latent_dim=latent_dim).to(device)
     model.load_model(model_path)
-    model.eval()
+    model.eval() # Set the model to evaluation mode
 
     # Parse date range
-    start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
+    start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S") 
     end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
-    delta_hours = int((end_time - start_time).total_seconds() // 3600)
+    delta_hours = int((end_time - start_time).total_seconds() // 3600) # Calculate the number of hours between start and end time
 
     # Number of blocks to generate
-    block_size = input_dim
+    block_size = input_dim 
     n_blocks = (delta_hours + block_size - 1) // block_size
 
     all_generated = []
