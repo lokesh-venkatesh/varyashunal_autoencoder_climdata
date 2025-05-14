@@ -60,9 +60,9 @@ def generate_time_series(start_time_str='1969-12-31 17:00:00', # Start time of t
     df.to_csv(output_csv, index=False)
     print(f"✅ Generated data saved to {output_csv}")
 
-    df_stats = df.drop(columns=['temperature']).describe()
+    df_stats = df.drop(columns=['time']).describe()
     df_stats_filepath = "results/gnrtd_timeseries_stats.csv"
-    df_stats.to_csv(df_stats_filepath, index=False)
+    df_stats.to_csv(df_stats_filepath)
     print(f"✅ Generated data saved to {df_stats_filepath}")
 
 

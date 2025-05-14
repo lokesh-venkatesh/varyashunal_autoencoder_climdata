@@ -20,7 +20,7 @@ def train():
     input_dim = 1536
     latent_dim = 10
     batch_size = 32
-    epochs = 200
+    epochs = 500
 
     # Prepare data
     train_loader, val_loader = get_dataloaders("data/reshaped_dataset.csv", batch_size=batch_size)
