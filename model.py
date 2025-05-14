@@ -138,7 +138,7 @@ class SeasonalPrior(nn.Module):
         self.freqs = nn.Parameter(torch.arange(1, num_freqs + 1).float().view(1, -1), requires_grad=False) 
         '''self.freqs = nn.Parameter(torch.arange(1, num_freqs + 1).float().view(1, -1))'''
         # This is a learnable parameter that is initialized to 1, 2, ..., num_freqs
-        self.linear = nn.Linear(2 * num_freqs, latent_dim) # Learnable projection from Fourier features to latent_dim
+        self.linear = nn.Linear(2 * num_freqs, latent_dim, bias=False) # Learnable projection from Fourier features to latent_dim
 
     def forward(self, time_tensor): # time_tensor: (batch,)
         """TAKES IN A TIME-TENSOR OF SIZE (BATCH_SIZE,) AND RETURNS A SEASONALITY EMBEDDING OF SIZE (BATCH_SIZE, LATENT_DIM)"""
