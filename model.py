@@ -17,33 +17,8 @@ class Sampling(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-
 class Encoder(nn.Module):
-    """THIS DEFINES THE ENCODER ARCHITECTURE FOR THE VAE MODEL,
-    FOR REFERENCE, THE BELOW LINES ARE THE STRUCTURE THAT DAVID KYLE USES:
-
-    # Parameters
-    input_shape = None #INPUT_SIZE
-    latent_dim = None #INPUT_SIZE//LATENT_SIZE
-    latent_filter = 10
-    interim_filters = 2*latent_filter
-
-    def build_encoder():
-        inputs = layers.Input(shape=(input_shape,))
-        x = layers.Reshape((-1, 1))(inputs)
-        x = layers.Conv1D(interim_filters, 5, strides=3, padding='same', activation='relu')(x)
-        x = layers.Conv1D(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1D(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1D(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1D(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1D(2*latent_filter, 3, strides=2, padding='same')(x)
-        z_mean = x[: ,:, :latent_filter]
-        z_log_var = x[:, :, latent_filter:]
-        z = Sampling()([z_mean, z_log_var])
-        encoder = models.Model(inputs, [z_mean, z_log_var, z], name='encoder')
-        encoder.summary()
-        return encoder
-    """
+    """THIS DEFINES THE ENCODER ARCHITECTURE FOR THE VAE MODEL"""
     def __init__(self, latent_dim=10):
         super().__init__()
         self.conv1 = nn.Conv1d(1, 20, kernel_size=5, stride=3, padding=2) # input is of length 1536, output is of length 512
@@ -77,30 +52,7 @@ class Encoder(nn.Module):
         return mu, logvar
 
 class Decoder(nn.Module):
-    """THIS DEFINES THE DECODER ARCHITECTURE FOR THE VAE MODEL,
-    FOR REFERENCE, THE BELOW LINES ARE THE STRUCTURE THAT DAVID KYLE USES:
-
-    # Parameters
-    input_shape = None #INPUT_SIZE
-    latent_dim = None #INPUT_SIZE//LATENT_SIZE
-    latent_filter = 10
-    interim_filters = 2*latent_filter
-
-    def build_decoder():
-        latent_inputs = layers.Input(shape=(latent_dim, latent_filter))
-        x = layers.Conv1DTranspose(interim_filters, 3, strides=2, padding='same', activation='relu')(latent_inputs)
-        x = layers.Conv1DTranspose(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1DTranspose(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1DTranspose(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1DTranspose(interim_filters, 3, strides=2, padding='same', activation='relu')(x)
-        x = layers.Conv1DTranspose(1, 5, strides=3, padding='same')(x)
-        outputs = layers.Reshape((-1,))(x)
-        decoder = models.Model(latent_inputs, outputs, name='decoder')
-        decoder.summary()
-        return decoder
-
-    decoder = build_decoder()
-    """
+    """THIS DEFINES THE DECODER ARCHITECTURE FOR THE VAE MODEL"""
     def __init__(self, latent_dim=10, output_length=1536):
         super().__init__()
         self.deconv1 = nn.ConvTranspose1d(latent_dim, 20, kernel_size=3, stride=2, padding=1, output_padding=1) # input is of length 32, output is of length 64
@@ -118,7 +70,6 @@ class Decoder(nn.Module):
         z = F.relu(self.deconv4(z))
         z = self.deconv5(z)
         return z.squeeze(1)  # (batch, 1536)
-
 
 class SeasonalPrior(nn.Module):
     """THIS CLASS DEFINES THE SEASONALITY PRIOR FOR THE VAE MODEL, IT TAKES IN A TIME-TENSOR AND RETURNS A SEASONALITY EMBEDDING
@@ -146,6 +97,11 @@ class SeasonalPrior(nn.Module):
         # Note that the time tensor is of the same length as the temperature values, which is 1536 values long, and the 'phase' is a float value between 0 and 1
         phases = 2*math.pi*self.freqs*time_tensor  # (batch, num_freqs) -> simply returns 2pi(x), 2pi(2x) and 2pi(3x)
         features = torch.cat([torch.sin(phases), torch.cos(phases)], dim=1)  # (batch, 2 * num_freqs) -> cos(2pi(x), 2pi(2x), 2pi(3x)), sin(2pi(x), 2pi(2x), 2pi(3x))
+        '''
+        print(features.shape)
+        print(features)
+        print(self.freqs.shape)
+        '''
         # This will return the corresponding phase vectors, which is simply a nested array with six values of fourier terms for each timepoint
         seasonal = self.linear(features)  # (batch, latent_dim)
         # This term basically passes this 'features' vector through the linear layer in the SeasonalPrior unit of the model, and returns whatever output is obtained
