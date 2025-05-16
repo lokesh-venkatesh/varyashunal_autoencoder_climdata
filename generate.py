@@ -8,8 +8,8 @@ from utils import set_seed
 
 set_seed(42)
 
-def generate_time_series(start_time_str='1969-12-31 17:00:00', # Start time of the time series
-                         end_time_str='2020-12-31 17:00:00', # End time of the time series
+def generate_time_series(start_time_str='1970-01-01 00:00:00', # Start time of the time series
+                         end_time_str='2020-12-31 18:00:00', # End time of the time series
                          model_path="results/model_weights.pth",
                          output_csv="results/gnrtd_timeseries.csv"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

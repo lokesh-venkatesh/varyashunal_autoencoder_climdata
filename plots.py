@@ -2,10 +2,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.gridspec as gridspec
-from matplotlib.collections import LineCollection
 
-raw_data = pd.read_csv("data/final_timeseries.csv", index_col=0, parse_dates=True).squeeze()
+raw_data = pd.read_csv("data/obsvd_timeseries.csv", index_col=0, parse_dates=True).squeeze()
 gen_data = pd.read_csv("results/gnrtd_timeseries.csv", index_col=0, parse_dates=True).squeeze()
+
+if isinstance(raw_data, pd.DataFrame): raw_data = raw_data.squeeze()
+if isinstance(gen_data, pd.DataFrame): gen_data = gen_data.squeeze()
+gen_data = gen_data.iloc[1:]
+
+print(raw_data.head())
+print(gen_data.head())
 
 raw_data.index.name = None
 df = pd.DataFrame({'Real': raw_data.values, 'Generated': gen_data.values}, index=raw_data.index)

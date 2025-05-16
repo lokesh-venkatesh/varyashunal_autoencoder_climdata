@@ -13,6 +13,6 @@ def run_script(script_name):
         exit(1)
 
 if __name__ == "__main__":
-    scripts = ["train.py", "generate.py", "plots.py"]
+    scripts = ["process_data.py", "train.py", "generate.py", "plots.py"]
     for script in scripts:
         run_script(script)

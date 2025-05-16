@@ -10,7 +10,6 @@ from utils import get_dataloaders, set_seed
 
 set_seed(42)
 
-
 def elbo_loss(recon_x, x, mu, logvar):
     """CALCULATE THE EVIDENCE LOWER BOUND (ELBO) LOSS FUNCTION USING THE RECONSTRUCTION LOSS AND KL DIVERGENCE"""
     recon_loss = nn.MSELoss()(recon_x, x)
@@ -22,7 +21,7 @@ def train():
     input_dim = 1536
     latent_dim = 10
     batch_size = 32
-    epochs = 500
+    epochs = 100
 
     # Prepare data
     train_loader, val_loader = get_dataloaders("data/reshaped_dataset.csv", batch_size=batch_size)
