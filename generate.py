@@ -4,7 +4,9 @@ import numpy as np
 from datetime import datetime, timedelta
 
 from model import VariationalAutoencoder
+from utils import set_seed
 
+set_seed(42)
 
 def generate_time_series(start_time_str='1969-12-31 17:00:00', # Start time of the time series
                          end_time_str='2020-12-31 17:00:00', # End time of the time series

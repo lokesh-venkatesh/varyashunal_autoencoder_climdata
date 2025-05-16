@@ -6,7 +6,9 @@ from tqdm import tqdm
 import os
 
 from model import VariationalAutoencoder
-from utils import get_dataloaders
+from utils import get_dataloaders, set_seed
+
+set_seed(42)
 
 
 def elbo_loss(recon_x, x, mu, logvar):

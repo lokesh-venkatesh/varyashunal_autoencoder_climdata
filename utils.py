@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
+import random
 
 class TimeSeriesDataset(Dataset):
     """THIS CLASS IS DEFINED FOR THE TIME SERIES DATASET
@@ -34,3 +35,18 @@ def get_dataloaders(csv_path, batch_size=32, split_ratio=0.8):
     train_loader, val_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True), DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
+
+def set_seed(SEED=42):
+    """
+    Set the random seed for reproducibility. If a global SEED variable is 
+    already defined, use it. Otherwise, set SEED to 42 and define it globally.
+    """
+    try:
+        SEED
+    except NameError:
+        SEED = 42
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(SEED)
